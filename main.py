@@ -5,6 +5,15 @@ import time, os
 from logging import Logger
 from pipeline import TranscriptionPipeline
 from tempfile import NamedTemporaryFile
+from audio import AudioTranscription 
+from chains import invoke_chain
+
+question_prompt = """
+This following content contains some important information. I want to get that information out from this 
+context but I don't know which exact question to ask you so that I can get the information.
+ Provide me all possible questions to ask so that I can get meaningful information from this context. 
+ Only generate questions and no other information. but limit questions to 10 
+"""
 
 # Initialize session state for chat history and database
 if "chat_history" not in st.session_state:
@@ -18,9 +27,9 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Function to invoke LangChain or any other processing logic based on user input
-def invoke_chain(prompt, messages):
-    # Your logic to process user input and generate a response goes here
-    pass
+def generate_response(transcript, prompt):
+    response = invoke_chain(transcript, prompt)
+    return response
 
 # Function to simulate recording
 def simulate_recording():
@@ -54,10 +63,13 @@ if prompt := st.chat_input("What is up?"):
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Get transcript if available
+    transcript = st.session_state.get("transcript", "")
+
     # Display assistant response in chat message container
     with st.spinner("Generating response..."):
         with st.chat_message("assistant"):
-            response = invoke_chain(prompt, st.session_state.messages)
+            response = generate_response(transcript, prompt)
             st.markdown(response)
     st.session_state.messages.append({"role": "assistant", "content": response})
 
@@ -69,43 +81,61 @@ upload_option = st.sidebar.radio("Choose an option", ["Upload Audio File", "Reco
 
 # Environment variables
 API_KEY = os.getenv("OPENAI_API_KEY")
-#if not API_KEY:
-    #logger.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
-
-pipeline = TranscriptionPipeline(API_KEY, compute_type="int8")
 
 # Conditional rendering based on radio button selection
 if upload_option == "Upload Audio File":
     uploaded_file = st.sidebar.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
-    if uploaded_file is not None:
+    if uploaded_file is not None and "transcript" not in st.session_state:
         with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
             temp_file.write(uploaded_file.read())
             temp_file_path = temp_file.name
         
         with st.spinner("Transcribing audio..."):
-            minutes = pipeline.process_audio_file(temp_file_path)
-
-            
-            
+            transcript = AudioTranscription().main(input_wav=temp_file_path, output_dir="output")
         
         os.remove(temp_file_path)
         
-        if minutes:
-            st.subheader("Meeting Minutes")
-            st.text(minutes)
+        if transcript and len(transcript) > 0:
+            st.session_state.transcript = transcript  # Store transcript in session state
+            sample_questions = invoke_chain(transcript, question_prompt)
+            
+            # Split the string into a list of questions
+            questions_list = sample_questions.split('\n')
+            
+            # Remove any empty strings from the list
+            questions_list = [question for question in questions_list if question]
+            
+            st.session_state.questions_list = questions_list
+            st.sidebar.success("Done processing")
         else:
             st.error("Transcription failed")
 
 elif upload_option == "Record Audio":
     duration = st.sidebar.slider("Select recording duration (seconds)", min_value=1, max_value=60, value=10)
-    if st.sidebar.button("Record and Transcribe"):
+    if st.sidebar.button("Record and Transcribe") and "transcript" not in st.session_state:
         with st.spinner("Recording audio..."):
             minutes = pipeline.process_live_recording(duration)
         
         if minutes:
-            st.subheader("Meeting Minutes")
-            st.text(minutes)
+            st.session_state.transcript = minutes  # Store transcript in session state
+            sample_questions = invoke_chain(minutes, question_prompt)
+            
+            # Split the string into a list of questions
+            questions_list = sample_questions.split('\n')
+            
+            # Remove any empty strings from the list
+            questions_list = [question for question in questions_list if question]
+            
+            st.session_state.questions_list = questions_list
+            st.sidebar.success("Done processing")
         else:
             st.error("Transcription failed")
 
-# End of Streamlit app code
+if "questions_list" in st.session_state:
+    # Slider to select the number of questions to display
+    num_questions = st.sidebar.slider("Number of questions to display", min_value=1, max_value=len(st.session_state.questions_list), value=3)
+    
+    # Display the selected number of questions
+    st.sidebar.markdown("### Frequently Asked Questions")
+    for i in range(num_questions):
+        st.sidebar.markdown(f"- {st.session_state.questions_list[i]}")

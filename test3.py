@@ -6,11 +6,13 @@ import torch
 from openai import OpenAI
 from dotenv import load_dotenv 
 import time 
-import os
 from pydub import AudioSegment
+import math
+
 load_dotenv()
 
 client = OpenAI()
+
 # Define your transcribe_audio function
 def transcribe_audio(file_path): 
     audio_file = open(file_path, "rb")
@@ -22,7 +24,33 @@ def transcribe_audio(file_path):
     return transcript
 
 
+def save_list_to_txt(file_path, text_list):
+    with open(file_path, 'w') as file:
+        for item in text_list:
+            file.write(f"{item}\n")
 
+# Function to split large audio files
+def split_large_audio(file_path, max_size_mb=25):
+    file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+    
+    if file_size_mb > max_size_mb:
+        audio = AudioSegment.from_wav(file_path)
+        duration_ms = len(audio)
+        num_chunks = math.ceil(file_size_mb / max_size_mb)
+        chunk_duration_ms = duration_ms / num_chunks
+        
+        chunks = []
+        for i in range(num_chunks):
+            start_ms = i * chunk_duration_ms
+            end_ms = start_ms + chunk_duration_ms
+            chunk = audio[start_ms:end_ms]
+            chunk_file_path = f"{file_path}_part_{i}.wav"
+            chunk.export(chunk_file_path, format="wav")
+            chunks.append(chunk_file_path)
+        
+        return chunks
+    else:
+        return [file_path]
 
 def combine_audio_files(output_dir): 
     # Counter to keep track of the combined files
@@ -53,9 +81,6 @@ def combine_audio_files(output_dir):
                 print(f"Combined audio saved to: {output_path}")
                 count += 1 
 
-
-
-
 # Define the split_audio function
 def split_audio(input_file, output_file, start, end):
     length = end - start
@@ -80,14 +105,20 @@ def assign_speaker(output_dir):
             for combined_file in combined_files:
                 combined_file_path = os.path.join(speaker_path, combined_file)
                 
-                # Transcribe the audio
-                transcript = transcribe_audio(combined_file_path)
+                # Split the file if it exceeds the size limit
+                audio_chunks = split_large_audio(combined_file_path)
+                
+                # Transcribe each chunk and combine the results
+                combined_transcript = ""
+                for chunk in audio_chunks:
+                    transcript = transcribe_audio(chunk)
+                    combined_transcript += transcript
                 
                 # Extract the speaker folder name from the file path
                 speaker_name = speaker_folder.replace("speaker_", "")
                 
                 # Format the transcript with the speaker name
-                formatted_transcript = f"{speaker_name}: {transcript}"
+                formatted_transcript = f"{speaker_name}: {combined_transcript}"
                 
                 # Add to the list of transcripts
                 transcripts.append(formatted_transcript)
@@ -131,6 +162,7 @@ def main(input_wav, output_dir):
     # Combine and transcribe audio
     combine_audio_files(output_dir)
     transcripts = assign_speaker(output_dir)
+    save_list_to_txt(file_path="data.txt",text_list=transcripts)
     for transcript in transcripts:
         print(transcript)
 
@@ -138,6 +170,9 @@ def main(input_wav, output_dir):
     print(f"Time taken to run this algorithm is {end_time - start_time} seconds")
 
 # Example usage
-input_wav = "/Users/vinayak/AI/projects/voice-assistant-bot/environment_debate.wav"
-output_dir = "output2"
-main(input_wav, output_dir)
+input_wav = "/Users/vinayak/AI/projects/voice-assistant-bot/youtube/muscles.mp3"
+input_wav2 = "/Users/vinayak/AI/projects/voice-assistant-bot/youtube2/india_roads.mp3"
+input_wav3 = "/Users/vinayak/AI/projects/voice-assistant-bot/youtube2/ai_podcast.mp3"
+input_wav4 = "/Users/vinayak/AI/projects/voice-assistant-bot/youtube2/neet_dhruv.mp3"
+output_dir = "output4"
+main(input_wav3, output_dir)
