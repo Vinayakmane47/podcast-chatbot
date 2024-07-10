@@ -140,6 +140,7 @@ class AudioTranscription:
         
         end_time = time.time()
         print(f"Time taken to run this algorithm is {end_time - start_time} seconds")
+        
         return transcripts
 # Example usage
 if __name__ == "__main__":

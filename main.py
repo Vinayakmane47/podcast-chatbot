@@ -7,6 +7,16 @@ from pipeline import TranscriptionPipeline
 from tempfile import NamedTemporaryFile
 from audio import AudioTranscription 
 from chains import invoke_chain
+import os
+import shutil
+from youtube import youtube_to_mp3
+
+directory = 'output'
+
+# Check if the directory exists
+if os.path.exists(directory):
+    # Remove the directory and its contents
+    shutil.rmtree(directory)
 
 question_prompt = """
 This following content contains some important information. I want to get that information out from this 
@@ -37,6 +47,9 @@ def simulate_recording():
     recording_time = 5  # Simulating a 5-second recording
     for _ in range(recording_time):
         time.sleep(1)  # Simulate each second of recording
+
+# Function to convert YouTube video to MP3
+
 
 # Streamlit app code starts here
 st.title("Podcast Chatbot")
@@ -77,7 +90,7 @@ if prompt := st.chat_input("What is up?"):
 st.sidebar.title("Options")
 
 # Radio button for choosing upload or record audio
-upload_option = st.sidebar.radio("Choose an option", ["Upload Audio File", "Record Audio"])
+upload_option = st.sidebar.radio("Choose an option", ["Upload Audio File", "Record Audio", "YouTube URL"])
 
 # Environment variables
 API_KEY = os.getenv("OPENAI_API_KEY")
@@ -130,6 +143,34 @@ elif upload_option == "Record Audio":
             st.sidebar.success("Done processing")
         else:
             st.error("Transcription failed")
+
+elif upload_option == "YouTube URL":
+    youtube_url = st.sidebar.text_input("Enter YouTube URL")
+    if st.sidebar.button("Process"):
+        if youtube_url:
+            with st.spinner("Converting YouTube video to MP3..."):
+                mp3_file_path = youtube_to_mp3(youtube_url, "youtube")  # Replace "output" with your desired output directory
+                
+            if mp3_file_path:
+                with st.spinner("Transcribing audio..."):
+                    transcript = AudioTranscription().main(input_wav=mp3_file_path, output_dir="output")
+                
+                if transcript and len(transcript) > 0:
+                    st.session_state.transcript = transcript  # Store transcript in session state
+                    sample_questions = invoke_chain(transcript, question_prompt)
+                    
+                    # Split the string into a list of questions
+                    questions_list = sample_questions.split('\n')
+                    
+                    # Remove any empty strings from the list
+                    questions_list = [question for question in questions_list if question]
+                    
+                    st.session_state.questions_list = questions_list
+                    st.sidebar.success("Done processing")
+                else:
+                    st.error("Transcription failed")
+            else:
+                st.error("Conversion to MP3 failed")
 
 if "questions_list" in st.session_state:
     # Slider to select the number of questions to display
