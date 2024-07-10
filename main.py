@@ -5,7 +5,7 @@ import time, os
 from logging import Logger
 from pipeline import TranscriptionPipeline
 from tempfile import NamedTemporaryFile
-from audio import AudioTranscription 
+from src.audio import AudioTranscription 
 from src.chains import invoke_chain
 import os
 import shutil
