@@ -1,6 +1,8 @@
 # PODCAST CHATBOT
 A Podcast Chatbot built using LangChain, OpenAI  LLM, OpenAI  Whisper , pynnote audio model , Huggingface  and Streamlit. This project converts YouTube videos to MP3, diarizes the audio, identifies speakers in the podcast, and provides sample questions to extract information from the podcast. You can interact with the podcast content through a chat interface.
 
+## Demo : 
+https://github.com/Vinayakmane47/podcast-chatbot/assets/103372852/e11cd260-e166-4625-9bf7-5304c0c6b5d5
 
 ### Features
 1. **YouTube to MP3 Conversion:** Converts YouTube videos to MP3 format.
