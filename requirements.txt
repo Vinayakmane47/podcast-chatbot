@@ -20,3 +20,4 @@ langchain-core
 langchain-community
 torch
 streamlit
+yt-dlp

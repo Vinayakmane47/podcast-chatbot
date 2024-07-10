@@ -6,10 +6,10 @@ from logging import Logger
 from pipeline import TranscriptionPipeline
 from tempfile import NamedTemporaryFile
 from audio import AudioTranscription 
-from chains import invoke_chain
+from src.chains import invoke_chain
 import os
 import shutil
-from youtube import youtube_to_mp3
+from src.yt_downloader import youtube_to_mp3
 
 directory = 'output'
 
